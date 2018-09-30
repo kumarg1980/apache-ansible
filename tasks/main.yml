@@ -1,0 +1,40 @@
+---
+# tasks file for /etc/ansible/roles/apache
+#- import_tasks: install.yml
+#- import_tasks: configure.yml
+#- import_tasks: service.yml
+
+- name: install apache
+  apt: name={{ item }} state=present update_cache=yes
+  with_items:
+    - apache2
+    - git
+
+- name: deleted index.html
+  file: path=/var/www/html/index.html state=absent
+
+- name: apache2 listen on port 80
+  lineinfile: dest=/etc/apache2/ports.conf regexp="^Listen " line="Listen {{ http_port }}" state=present
+  notify:
+    - restart apache2
+
+- name: apache2 virtualhost on port 80
+  lineinfile: dest=/etc/apache2/sites-available/000-default.conf regexp="^<VirtualHost \*:" line="<VirtualHost *:{{ http_port }}>" state=present  
+  notify:
+    - restart apache2
+
+- name: Copy index.html file
+  copy: src=index.html dest=/var/www/html
+  notify:
+    - restart apache2
+
+- name: create virtual host file
+  template: src=virtualhost.conf dest=/etc/apache2/sites-available/{{ domain }}.conf
+
+- name: a2ensite {{ domain }}  
+  command: a2ensite {{ domain }}
+  args:
+    creates: /etc/apache2/sites-enabled/{{ domain }}.conf
+  notify:
+    - restart apache2
+
